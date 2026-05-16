@@ -3749,14 +3749,14 @@ const MathSlashPage = ({ onBack }: { onBack: () => void }) => {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   padding: 16,
                 }}>
-                  <div className="font-mono" style={{
+                  <div className="font-mono ms-go-card" style={{
                     width: '100%', maxWidth: 380,
                     background: '#0a0a0a', border: '1px solid #1f1f1f',
                     borderRadius: 16, padding: 24, textAlign: 'center', color: '#fff',
                   }}>
                     <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '0.1em', marginBottom: 12 }}>🎮 GAME OVER</div>
                     <div style={{ fontSize: 12, textTransform: 'uppercase', color: '#666', letterSpacing: '0.1em' }}>Score</div>
-                    <div style={{ fontSize: 32, fontWeight: 700, marginBottom: 18 }}>{gameOver.score}</div>
+                    <div className="ms-go-score" style={{ fontSize: 32, fontWeight: 700, marginBottom: 18 }}>{gameOver.score}</div>
 
                     <div style={{ display: 'grid', gap: 10, marginBottom: 18, textAlign: 'left' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}><span style={{ color: '#777', textTransform: 'uppercase' }}>Correct / Wrong</span><span>{gameOver.correct} / {gameOver.wrong}</span></div>
