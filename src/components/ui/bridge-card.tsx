@@ -30,6 +30,8 @@ const SEPOLIA_BRIDGE_ABI = [
   "function lockWZKLTC(uint256 amount)",
   "function lockLDEX(uint256 amount)",
   "function getTotalBurned() view returns(uint256)",
+  "event WZKLTCLocked(address indexed user, uint256 amount, uint256 nonce)",
+  "event LDEXLocked(address indexed user, uint256 amount, uint256 nonce)",
 ];
 const ERC20_ABI = [
   "function approve(address,uint256) returns(bool)",
