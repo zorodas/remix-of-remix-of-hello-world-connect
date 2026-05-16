@@ -3496,16 +3496,8 @@ const MathSlashPage = ({ onBack }: { onBack: () => void }) => {
     setResult(null);
     setStarting(true);
     try {
-      const r = await fetch(`${SIMPLE_API}/simple/start`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet: lowerAddr }),
-      });
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        setErrMsg(data?.error || data?.message || `Failed to start (${r.status})`);
-        return;
-      }
+      // Do NOT call /simple/start here — the iframe owns the start/end lifecycle.
+      // Calling it here would double-decrement games left.
       setPlaying(true);
       try {
         const el: any = document.documentElement;
