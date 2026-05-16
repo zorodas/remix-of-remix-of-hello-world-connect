@@ -15,10 +15,11 @@ import {
 
 // ============== Constants ==============
 const LIT_BRIDGE = "0x8F154dA71735869559D326306056430Db51e7233";
-const SEPOLIA_BRIDGE = "0xc4807A6547339aE1c38EE1Cc4A27c5A7acb9c38C";
-const WZKLTC_SEPOLIA = "0xBE9C63907d0Bfaa55EF8729907f37B9c60863fc7";
+const SEPOLIA_BRIDGE = "0x62a27c025CF2e4E8c446dA346265F41C3bfA4771";
+const WZKLTC_SEPOLIA = "0xA54a237c8ae12dfda42EAc61e8F62EB939Bd38E4";
 const LDEX_LITVM = "0xBAaba603e6298fbb76325a6B0d47Cd57154ca641";
-const LDEX_SEPOLIA = "0x688dB3dbd582D9E394bdE138ad1d1dD162b18A07";
+const LDEX_SEPOLIA = "0x62D542bd35eE044b2DE9E0EAf6cb2B7C3f932491";
+const BURN_ADDRESS = "0x000000000000000000000000000000000000dEaD";
 
 const LIT_BRIDGE_ABI = [
   "function lockZKLTC() payable",
@@ -28,6 +29,7 @@ const SEPOLIA_BRIDGE_ABI = [
   "function lockETH() payable",
   "function lockWZKLTC(uint256 amount)",
   "function lockLDEX(uint256 amount)",
+  "function getTotalBurned() view returns(uint256)",
 ];
 const ERC20_ABI = [
   "function approve(address,uint256) returns(bool)",
