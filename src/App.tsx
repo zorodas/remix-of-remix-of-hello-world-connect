@@ -3401,6 +3401,9 @@ const MathSlashPage = ({ onBack }: { onBack: () => void }) => {
   const [playing, setPlaying] = useState(false);
   const [starting, setStarting] = useState(false);
   const [result, setResult] = useState<{ score: number; zkltcSent: string; explorerUrl?: string; txHash?: string } | null>(null);
+  const [gameOverPending, setGameOverPending] = useState(false);
+  const [gameOverScore, setGameOverScore] = useState<number | null>(null);
+  const [iframeKey, setIframeKey] = useState(0);
   const [errMsg, setErrMsg] = useState('');
 
   const lowerAddr = address ? address.toLowerCase() : '';
