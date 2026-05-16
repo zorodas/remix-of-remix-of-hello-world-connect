@@ -3811,40 +3811,6 @@ const MathSlashPage = ({ onBack }: { onBack: () => void }) => {
         </div>
       )}
 
-      {/* Result popup */}
-      {result && (
-        <div className="fixed inset-0 z-[100001] flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.85)' }} onClick={() => setResult(null)}>
-          <div className="w-full max-w-md p-6 rounded-2xl font-mono bg-brand-surface border border-brand-border" onClick={(e) => e.stopPropagation()}>
-            <div className="text-brand-text-primary text-lg mb-1">🎮 Game Over!</div>
-            <div className="text-brand-text-muted text-xs mb-4">Score submitted · zkLTC auto-sent</div>
-            <div className="space-y-2 mb-4">
-              <div className="flex justify-between text-xs">
-                <span className="text-brand-text-muted uppercase">Score</span>
-                <span className="text-brand-text-primary font-bold">{result.score}</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-brand-text-muted uppercase">zkLTC Sent</span>
-                <span className="text-brand-text-primary font-bold">💰 {result.zkltcSent}</span>
-              </div>
-            </div>
-            {result.explorerUrl && (
-              <a href={result.explorerUrl} target="_blank" rel="noreferrer" className="block text-center text-[11px] text-brand-text-primary underline decoration-white/30 mb-3">
-                View Transaction →
-              </a>
-            )}
-            <button
-              onClick={() => { setResult(null); startGame(); }}
-              disabled={!isConnected || gamesLeft <= 0 || starting}
-              className="w-full py-3 rounded-lg bg-brand-text-primary text-brand-bg font-mono font-bold text-sm disabled:opacity-50"
-            >
-              {gamesLeft <= 0 ? 'DAILY LIMIT REACHED' : 'PLAY AGAIN'}
-            </button>
-            <button onClick={() => setResult(null)} className="w-full mt-2 py-2 rounded-lg font-mono text-[11px] uppercase text-brand-text-muted hover:text-brand-text-primary">
-              Close
-            </button>
-          </div>
-        </div>
-      )}
     </motion.div>
   );
 };
