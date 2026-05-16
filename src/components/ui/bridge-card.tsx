@@ -30,6 +30,8 @@ const SEPOLIA_BRIDGE_ABI = [
   "function lockWZKLTC(uint256 amount)",
   "function lockLDEX(uint256 amount)",
   "function getTotalBurned() view returns(uint256)",
+  "event WZKLTCLocked(address indexed user, uint256 amount, uint256 nonce)",
+  "event LDEXLocked(address indexed user, uint256 amount, uint256 nonce)",
 ];
 const ERC20_ABI = [
   "function approve(address,uint256) returns(bool)",
@@ -500,14 +502,36 @@ export default function BridgeCard({ className = "" }: { className?: string }) {
   });
 
   const [totalBurned, setTotalBurned] = React.useState<bigint | null>(null);
+  const [totalWzkltcBurned, setTotalWzkltcBurned] = React.useState<bigint | null>(null);
+  const [totalLdexBurned, setTotalLdexBurned] = React.useState<bigint | null>(null);
 
   const fetchTotalBurned = React.useCallback(async () => {
+    const c = new Contract(SEPOLIA_BRIDGE, SEPOLIA_BRIDGE_ABI, sepProv);
     try {
-      const c = new Contract(SEPOLIA_BRIDGE, SEPOLIA_BRIDGE_ABI, sepProv);
       const v = (await c.getTotalBurned()) as bigint;
       setTotalBurned(v);
+    } catch { setTotalBurned(null); }
+
+    try {
+      const latest = await sepProv.getBlockNumber();
+      const fromBlock = Math.max(0, latest - 10000);
+      const sumEvents = async (name: string): Promise<bigint> => {
+        try {
+          const evs = await c.queryFilter(c.filters[name](), fromBlock, latest);
+          let sum = 0n;
+          for (const ev of evs) {
+            const amt = (ev as any).args?.amount as bigint | undefined;
+            if (amt) sum += amt;
+          }
+          return sum;
+        } catch { return 0n; }
+      };
+      const [w, l] = await Promise.all([sumEvents("WZKLTCLocked"), sumEvents("LDEXLocked")]);
+      setTotalWzkltcBurned(w);
+      setTotalLdexBurned(l);
     } catch {
-      setTotalBurned(null);
+      setTotalWzkltcBurned(null);
+      setTotalLdexBurned(null);
     }
   }, []);
 
@@ -526,7 +550,7 @@ export default function BridgeCard({ className = "" }: { className?: string }) {
     }
 
     const needsApproval = selected.address !== null;
-    const isBurn = fromChain === "sepolia" && (selected.symbol === "ETH" || selected.symbol === "WZKLTC");
+    const isBurn = fromChain === "sepolia";
 
     // Build labeled steps per direction
     const destLabel = isBurn ? "Burned & Arrived" : (fromChain === "litvm" ? "Sepolia" : "LitVM");
@@ -768,13 +792,27 @@ export default function BridgeCard({ className = "" }: { className?: string }) {
       </section>
 
       <div
-        className="mt-3 rounded-lg bg-black text-white px-4 py-3 flex items-center justify-between font-mono"
+        className="mt-3 rounded-lg bg-black text-white px-4 py-3 font-mono space-y-2"
         style={{ border: BORDER }}
       >
-        <span className="text-[10px] uppercase tracking-[0.2em] text-white/60">🔥 Total ETH Burned</span>
-        <span className="text-sm font-bold tabular-nums">
-          {totalBurned === null ? "..." : `${Number(formatEther(totalBurned)).toFixed(4)} ETH`}
-        </span>
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] uppercase tracking-[0.2em] text-white/60">🔥 Total ETH Burned</span>
+          <span className="text-sm font-bold tabular-nums">
+            {totalBurned === null ? "..." : `${Number(formatEther(totalBurned)).toFixed(4)} ETH`}
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] uppercase tracking-[0.2em] text-white/60">🔥 Total WZKLTC Burned</span>
+          <span className="text-sm font-bold tabular-nums">
+            {totalWzkltcBurned === null ? "..." : `${Number(formatEther(totalWzkltcBurned)).toFixed(4)} WZKLTC`}
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] uppercase tracking-[0.2em] text-white/60">🔥 Total LDEX Burned</span>
+          <span className="text-sm font-bold tabular-nums">
+            {totalLdexBurned === null ? "..." : `${Number(formatEther(totalLdexBurned)).toFixed(4)} LDEX`}
+          </span>
+        </div>
       </div>
 
       <ProgressModal state={progress} onClose={closeProgress} onBridgeAgain={bridgeAgain} />
