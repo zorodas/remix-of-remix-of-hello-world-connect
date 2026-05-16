@@ -3558,7 +3558,7 @@ const MathSlashPage = ({ onBack }: { onBack: () => void }) => {
             </tr>
           </thead>
           <tbody>
-            {board.slice(0, 10).map((e: any, i: number) => {
+            {board.slice(0, 20).map((e: any, i: number) => {
               const w = e.wallet || e.walletAddress || e.address || '';
               const cls = i === 0 ? 'text-brand-text-primary font-bold' : 'text-brand-text-muted';
               return (
