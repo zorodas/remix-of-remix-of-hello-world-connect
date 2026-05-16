@@ -502,14 +502,36 @@ export default function BridgeCard({ className = "" }: { className?: string }) {
   });
 
   const [totalBurned, setTotalBurned] = React.useState<bigint | null>(null);
+  const [totalWzkltcBurned, setTotalWzkltcBurned] = React.useState<bigint | null>(null);
+  const [totalLdexBurned, setTotalLdexBurned] = React.useState<bigint | null>(null);
 
   const fetchTotalBurned = React.useCallback(async () => {
+    const c = new Contract(SEPOLIA_BRIDGE, SEPOLIA_BRIDGE_ABI, sepProv);
     try {
-      const c = new Contract(SEPOLIA_BRIDGE, SEPOLIA_BRIDGE_ABI, sepProv);
       const v = (await c.getTotalBurned()) as bigint;
       setTotalBurned(v);
+    } catch { setTotalBurned(null); }
+
+    try {
+      const latest = await sepProv.getBlockNumber();
+      const fromBlock = Math.max(0, latest - 10000);
+      const sumEvents = async (name: string): Promise<bigint> => {
+        try {
+          const evs = await c.queryFilter(c.filters[name](), fromBlock, latest);
+          let sum = 0n;
+          for (const ev of evs) {
+            const amt = (ev as any).args?.amount as bigint | undefined;
+            if (amt) sum += amt;
+          }
+          return sum;
+        } catch { return 0n; }
+      };
+      const [w, l] = await Promise.all([sumEvents("WZKLTCLocked"), sumEvents("LDEXLocked")]);
+      setTotalWzkltcBurned(w);
+      setTotalLdexBurned(l);
     } catch {
-      setTotalBurned(null);
+      setTotalWzkltcBurned(null);
+      setTotalLdexBurned(null);
     }
   }, []);
 
