@@ -3401,6 +3401,9 @@ const MathSlashPage = ({ onBack }: { onBack: () => void }) => {
   const [playing, setPlaying] = useState(false);
   const [starting, setStarting] = useState(false);
   const [result, setResult] = useState<{ score: number; zkltcSent: string; explorerUrl?: string; txHash?: string } | null>(null);
+  const [gameOverPending, setGameOverPending] = useState(false);
+  const [gameOverScore, setGameOverScore] = useState<number | null>(null);
+  const [iframeKey, setIframeKey] = useState(0);
   const [errMsg, setErrMsg] = useState('');
 
   const lowerAddr = address ? address.toLowerCase() : '';
@@ -3442,34 +3445,58 @@ const MathSlashPage = ({ onBack }: { onBack: () => void }) => {
     return () => clearInterval(t);
   }, [lowerAddr]);
 
-  // Iframe owns the full game lifecycle (start + end).
-  // Parent only reacts to explicit exit, and refreshes stats after /end completes inside the iframe.
+  // Listen for score from iframe and submit /simple/end. React overlay owns the game-over UI.
   useEffect(() => {
     if (!lowerAddr) return;
-    const onMsg = (e: MessageEvent) => {
+    const onMsg = async (e: MessageEvent) => {
       const d: any = e?.data;
       if (!d) return;
       if (d.type === 'litdex:mathslash:exit') {
         setPlaying(false);
+        setResult(null);
+        setGameOverPending(false);
+        setGameOverScore(null);
         try { if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {}); } catch {}
         try { (screen.orientation as any)?.unlock?.(); } catch {}
         fetchStats();
-        fetchBoard();
-        fetchGlobal();
         return;
       }
-      if (d.type === 'litdex:mathslash:end') {
-        // Iframe already submitted /simple/end and is showing reward UI internally.
-        // Do NOT auto-exit; just refresh outer stats silently.
-        const score = Number(d.score) || 0;
-        const ptsEarned = Number(d.pointsEarned) || 0;
-        try {
-          addNotif(lowerAddr, {
-            type: 'game',
-            title: 'Game Over',
-            message: `Scored ${score} · ${ptsEarned} PTS earned`,
-          });
-        } catch {}
+      // Accept BOTH the new GAME_OVER event and the legacy litdex:mathslash:end event
+      const isGameOver = d.type === 'GAME_OVER' || d.type === 'litdex:mathslash:end';
+      if (!isGameOver) return;
+
+      const score = Number(d.score) || 0;
+      setGameOverScore(score);
+      setGameOverPending(true);
+      setResult(null);
+      setErrMsg('');
+
+      try {
+        const r = await fetch(`${SIMPLE_API}/simple/end`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ wallet: lowerAddr, score }),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (r.ok && data?.success !== false) {
+          const zkltcSent = String(data?.zkltcSent ?? (score * RATE).toFixed(8));
+          const explorerUrl = data?.explorerUrl || (data?.txHash ? `https://liteforge.explorer.caldera.xyz/tx/${data.txHash}` : undefined);
+          setResult({ score: Number(data?.score ?? score), zkltcSent, explorerUrl, txHash: data?.txHash });
+          try {
+            addNotif(lowerAddr, {
+              type: 'game',
+              title: 'Game Over',
+              message: `Scored ${score} · ${zkltcSent} zkLTC sent`,
+              link: explorerUrl,
+            });
+          } catch {}
+        } else {
+          setErrMsg(data?.error || data?.message || 'Failed to submit score');
+        }
+      } catch (err: any) {
+        setErrMsg(err?.message || 'Network error submitting score');
+      } finally {
+        setGameOverPending(false);
         fetchStats();
         fetchBoard();
         fetchGlobal();
@@ -3478,6 +3505,26 @@ const MathSlashPage = ({ onBack }: { onBack: () => void }) => {
     window.addEventListener('message', onMsg);
     return () => window.removeEventListener('message', onMsg);
   }, [lowerAddr]);
+
+  const handlePlayAgain = async () => {
+    setResult(null);
+    setGameOverPending(false);
+    setGameOverScore(null);
+    setErrMsg('');
+    setIframeKey(k => k + 1); // reload iframe — game's own PLAY button calls /simple/start
+  };
+
+  const handleExitGame = () => {
+    setPlaying(false);
+    setResult(null);
+    setGameOverPending(false);
+    setGameOverScore(null);
+    try { if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {}); } catch {}
+    try { (screen.orientation as any)?.unlock?.(); } catch {}
+    fetchStats();
+    fetchBoard();
+    fetchGlobal();
+  };
 
   useEffect(() => {
     if (playing) document.body.classList.add('hide-nav');
@@ -3496,8 +3543,16 @@ const MathSlashPage = ({ onBack }: { onBack: () => void }) => {
     setResult(null);
     setStarting(true);
     try {
-      // Do NOT call /simple/start here — the iframe owns the start/end lifecycle.
-      // Calling it here would double-decrement games left.
+      const r = await fetch(`${SIMPLE_API}/simple/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet: lowerAddr }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setErrMsg(data?.error || data?.message || `Failed to start (${r.status})`);
+        return;
+      }
       setPlaying(true);
       try {
         const el: any = document.documentElement;
@@ -3623,18 +3678,80 @@ const MathSlashPage = ({ onBack }: { onBack: () => void }) => {
             </div>
           ) : (
             <div className="relative w-screen h-screen" style={{ width: '100vw', height: '100dvh' }}>
-              <button onClick={() => {
-                setPlaying(false);
-                fetchStats();
-                try { if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {}); } catch {}
-                try { (screen.orientation as any)?.unlock?.(); } catch {}
-              }} className="font-mono text-[11px] uppercase bg-brand-surface-2 text-brand-text-primary border border-brand-border" style={{ position: 'fixed', top: 16, right: 16, zIndex: 999999, padding: '8px 14px', borderRadius: 8 }}>EXIT</button>
+              <button onClick={handleExitGame} className="font-mono text-[11px] uppercase bg-brand-surface-2 text-brand-text-primary border border-brand-border" style={{ position: 'fixed', top: 16, right: 16, zIndex: 999999, padding: '8px 14px', borderRadius: 8 }}>EXIT</button>
               <iframe
+                key={iframeKey}
                 src={`/games/math-slash.html?wallet=${lowerAddr}`}
                 title="Math Slash"
                 style={{ border: 'none', position: 'absolute', inset: 0, width: '100%', height: '100%' }}
                 allow="autoplay; fullscreen"
               />
+
+              {/* React-owned GAME OVER overlay (covers the iframe's own one) */}
+              {(gameOverPending || result || (gameOverScore !== null && errMsg)) && (
+                <div style={{
+                  position: 'fixed', inset: 0, zIndex: 999998,
+                  background: 'rgba(0,0,0,0.92)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: 16,
+                }}>
+                  <div className="font-mono" style={{
+                    width: '100%', maxWidth: 380,
+                    background: '#0a0a0a', border: '1px solid #1f1f1f',
+                    borderRadius: 16, padding: 24, textAlign: 'center', color: '#fff',
+                  }}>
+                    <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '0.1em', marginBottom: 12 }}>🎮 GAME OVER</div>
+                    <div style={{ fontSize: 12, textTransform: 'uppercase', color: '#666', letterSpacing: '0.1em' }}>Score</div>
+                    <div style={{ fontSize: 32, fontWeight: 700, marginBottom: 18 }}>{gameOverScore ?? 0}</div>
+
+                    {gameOverPending && (
+                      <div style={{ marginBottom: 20 }}>
+                        <div style={{ fontSize: 14, color: '#999' }}>💰 Converting…</div>
+                      </div>
+                    )}
+
+                    {result && !gameOverPending && (
+                      <div style={{ marginBottom: 20 }}>
+                        <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>💰 {result.zkltcSent} zkLTC sent!</div>
+                        {result.explorerUrl && (
+                          <a href={result.explorerUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#9ad4ff', textDecoration: 'underline' }}>View TX →</a>
+                        )}
+                      </div>
+                    )}
+
+                    {errMsg && !gameOverPending && !result && (
+                      <div style={{ marginBottom: 20, fontSize: 12, color: '#c44' }}>{errMsg}</div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+                      <button
+                        onClick={handlePlayAgain}
+                        disabled={gameOverPending}
+                        style={{
+                          flex: 1, minHeight: 48, borderRadius: 10,
+                          background: '#fff', color: '#000', border: 'none',
+                          fontSize: 12, fontWeight: 700, letterSpacing: '0.1em',
+                          textTransform: 'uppercase', cursor: gameOverPending ? 'not-allowed' : 'pointer',
+                          opacity: gameOverPending ? 0.5 : 1,
+                          WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation',
+                        }}
+                      >Play Again</button>
+                      <button
+                        onClick={handleExitGame}
+                        disabled={gameOverPending}
+                        style={{
+                          flex: 1, minHeight: 48, borderRadius: 10,
+                          background: 'transparent', color: '#fff', border: '1px solid #333',
+                          fontSize: 12, fontWeight: 700, letterSpacing: '0.1em',
+                          textTransform: 'uppercase', cursor: gameOverPending ? 'not-allowed' : 'pointer',
+                          opacity: gameOverPending ? 0.5 : 1,
+                          WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation',
+                        }}
+                      >Exit</button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

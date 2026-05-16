@@ -1497,9 +1497,9 @@
     }
   }
 
-  async function endGame() {
+  function endGame() {
     setGameState('gameover');
-    // BUG 2 FIX: capture final score immediately so async UI cannot read a reset value
+    // Capture final score so async UI cannot read a reset value
     const finalScore = score;
     if (finalScore > bestScore) {
       bestScore = finalScore;
@@ -1514,30 +1514,16 @@
     const litdexHud = document.getElementById('litdex-hud');
     if (litdexHud) litdexHud.style.opacity = '0';
 
-    goScreen.classList.remove('hidden');
+    // Hide the in-game gameover screen — React parent owns the game-over UI now.
+    goScreen.classList.add('hidden');
 
-    // BUG 4 FLOW: show "Converting…" loading state, hide buttons until /end resolves
+    // Tell the React parent. Send BOTH event names for compatibility.
     isSlicing = false;
-    const _restart = document.getElementById('restart-btn');
-    const _exit    = document.getElementById('exit-btn');
-    const _reward  = document.getElementById('reward-card');
-    const _zkEl    = document.getElementById('go-zk-earned');
-    const _gamesEl = document.getElementById('go-games-left');
-    if (_reward)  _reward.style.display = 'block';
-    if (_zkEl)    _zkEl.textContent = 'Converting to zkLTC…';
-    if (_gamesEl) _gamesEl.textContent = '';
-    if (_restart) { _restart.style.display = 'none'; }
-    if (_exit)    { _exit.style.display    = 'none'; }
-
-    // BUG 3 FIX: this is the single place /simple/end is called (await it before showing buttons)
-    try { await LitDeX.endSession(finalScore); } catch (e) { console.warn('[MathSlash] endSession threw', e); }
-
-    // Now reveal action buttons (with brief tap-guard against stray slicing fingers)
-    setTimeout(() => {
-      if (gameState !== 'gameover') return;
-      if (_restart) { _restart.style.display = ''; _restart.style.pointerEvents = 'auto'; _restart.style.opacity = '1'; _restart.textContent = 'PLAY AGAIN'; }
-      if (_exit)    { _exit.style.display    = ''; _exit.style.pointerEvents    = 'auto'; _exit.style.opacity    = '1'; }
-    }, 400);
+    try {
+      window.parent && window.parent.postMessage({ type: 'GAME_OVER', score: finalScore }, '*');
+      window.parent && window.parent.postMessage({ type: 'litdex:mathslash:end', score: finalScore }, '*');
+    } catch (_) {}
+    // Note: do NOT call LitDeX.endSession here — the React parent calls /simple/end.
   }
 
   // ═════════════════════════════════════════════════════
