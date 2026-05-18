@@ -3629,6 +3629,7 @@ const MathSlashPage = ({ onBack }: { onBack: () => void }) => {
     setAutoStart(false);
     setStarting(true);
     liveScoreRef.current = 0;
+    fetchStats();
     try {
       const r = await fetch(`${SIMPLE_API}/simple/start`, {
         method: 'POST',
