@@ -3770,6 +3770,7 @@ const MathSlashPage = ({ onBack }: { onBack: () => void }) => {
         body: JSON.stringify({ wallet: lowerAddr }),
       });
       const data = await r.json().catch(() => ({}));
+      console.log('[MathSlash] /simple/start response:', data);
       if (!r.ok) {
         setErrMsg(data?.error || data?.message || `Failed to start (${r.status})`);
         return;
